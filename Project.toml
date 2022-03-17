@@ -1,3 +1,5 @@
 [deps]
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
+NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+NamedArrays = "86f7a689-2022-50b4-a561-43c23ac3c673"
