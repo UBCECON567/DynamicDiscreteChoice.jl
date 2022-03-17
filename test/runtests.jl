@@ -29,7 +29,7 @@ end
 end
 
 
-@testset "value" begin
+@testset "DDC" begin
   actions = ["in","out"]
   endostates = ["inlast","outlast"]
   exostates = ["lo","hi"]
@@ -58,33 +58,39 @@ end
   res = DynamicDiscreteChoice.value(ddc, show_trace=true, method=:anderson, m=0)
   p = DynamicDiscreteChoice.choicep(res.v, ddc)
 
-  # simulated average value should approximately equal the compute res.V
-  v = res.v
-  T = 10_000
-  pay = zeros(T)
-  states = Vector{typeof(s)}(undef, T)
-  let s = 1
-    for t ∈ eachindex(pay)
-      ϵ = rand(Distributions.Gumbel(), length(ddc.actions))
-      a = argmax(v[:,s] + ϵ)
-      pay[t] = ddc.payoffs[a,s] + ϵ[a]
-      states[t] = s
-      s = rand(ddc.transition(a),s)
+  @testset "value" begin
+    # simulated average value should approximately equal the compute res.V
+    v = res.v
+    T = 10_000
+    pay = zeros(T)
+    states = Vector{typeof(s)}(undef, T)
+    let s = 1
+      for t ∈ eachindex(pay)
+        ϵ = rand(Distributions.Gumbel(), length(ddc.actions))
+        a = argmax(v[:,s] + ϵ)
+        pay[t] = ddc.payoffs[a,s] + ϵ[a]
+        states[t] = s
+        s = rand(ddc.transition(a),s)
+      end
     end
-  end
-  simV = [
-    mean( sum(pay[t:end].*ddc.discount.^(0:(T-t))) for t ∈ findall(states.==s) )
+    simV = [
+      mean( sum(pay[t:end].*ddc.discount.^(0:(T-t))) for t ∈ findall(states.==s) )
     for s in 1:length(ddc.states) ]
-  # these should be close, but need very large T to be really close
-  display(hcat(simV, res.V))
+    # these should be close, but need very large T to be really close
+    display(hcat(simV, res.V))
 
-  sim = DynamicDiscreteChoice.simulate(T, ddc, v)
-  for s ∈ keys(ddc.states)
-    for a ∈ keys(ddc.actions)
-      @show p[a,s], mean(sim.actions[findall(==(s),sim.states)].==a)
-      @test isapprox(p[a,s], mean(sim.actions[findall(==(s),sim.states)].==a),
-                     atol=3*sqrt(p[a,s]*(1-p[a,s])/sum(==(s), sim.states)))
+    sim = DynamicDiscreteChoice.simulate(T, ddc, v)
+    for s ∈ keys(ddc.states)
+      for a ∈ keys(ddc.actions)
+        @show p[a,s], mean(sim.actions[findall(==(s),sim.states)].==a)
+        @test isapprox(p[a,s], mean(sim.actions[findall(==(s),sim.states)].==a),
+                       atol=3*sqrt(p[a,s]*(1-p[a,s])/sum(==(s), sim.states)))
+      end
     end
   end
-
+  @testset "estimate" begin
+    T = 20_000
+    sim = DynamicDiscreteChoice.simulate(T, ddc, res.v)
+    est = DynamicDiscreteChoice.estimate(sim.actions, sim.states, ddc.discount, zero_action="out", states=ddc.states, actions=ddc.actions)
+  end
 end
