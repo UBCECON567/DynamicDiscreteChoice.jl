@@ -63,7 +63,7 @@ end
     v = res.v
     T = 10_000
     pay = zeros(T)
-    states = Vector{typeof(s)}(undef, T)
+    states = Vector{Int}(undef, T)
     let s = 1
       for t ∈ eachindex(pay)
         ϵ = rand(Distributions.Gumbel(), length(ddc.actions))

@@ -7,7 +7,6 @@ import Distributions
 import NLsolve
 import ShiftedArrays: lag
 import LinearAlgebra: I
-using Infiltrator
 
 include("markovchain.jl")
 export MarkovChain, getindex, *, show, rand,
@@ -134,6 +133,16 @@ function simulate(T, ddc)
   V, v, _ = value(ddc)
   return(simulate(T, ddc, v))
 end
+
+"""
+   simulate(T, ddc, v)
+
+Simulates dynamic discrete choice problem for `T` periods with choice
+specific value functions `v`.
+
+Returns a named tuple consisting of states, state indices, actions,
+and action indices.
+"""
 
 function simulate(T, ddc, v)
   state, si = rand(ddc.states)
