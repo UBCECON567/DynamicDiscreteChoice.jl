@@ -1,9 +1,12 @@
 using DynamicDiscreteChoice
-using Documenter
+using Documenter, DocumenterCitations
 
 DocMeta.setdocmeta!(DynamicDiscreteChoice, :DocTestSetup, :(using DynamicDiscreteChoice); recursive=true)
 
-makedocs(;
+
+bib = CitationBibliography("ddc.bib")
+
+makedocs(bib;
     modules=[DynamicDiscreteChoice],
     authors="Paul Schrimpf <paul.schrimpf@gmail.com> and contributors",
     repo="https://github.com/ubcecon567/DynamicDiscreteChoice.jl/blob/{commit}{path}#{line}",
