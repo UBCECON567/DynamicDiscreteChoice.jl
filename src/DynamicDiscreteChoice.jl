@@ -10,7 +10,7 @@ import LinearAlgebra: I
 
 include("markovchain.jl")
 export MarkovChain, getindex, *, show, rand,
-  emax, value, choicep, estimate
+  emax, value, choicep, estimate, ControlledMarkovChain, eltype
 
 
 struct DDC{StateType, ActionType, PayType, T, TranType, Dist}
@@ -18,7 +18,7 @@ struct DDC{StateType, ActionType, PayType, T, TranType, Dist}
   actions::OrderedDict{ActionType,Int64}
   payoffs::PayType
   discount::T
-  transition::TranType
+  transition::ControlledMarkovChain{TranType, ActionType}
   Fϵ::Dist
 end
 
@@ -193,39 +193,44 @@ zero_action=first(ddc.actions)[1])` if you want to use other estimates
 for choice and transition probabilities.
 
 """
-function estimate(action_data, state_data, discount; zero_action=action_data[1],
+function estimate_series(action_data, state_data, discount; zero_action=action_data[1],
                   Fϵ=Distributions.Gumbel(),
                   actions = OrderedDict(a => i for (i,a) ∈ enumerate(unique(action_data))),
                   states = OrderedDict(s => i for (i,s) ∈ enumerate(unique(state_data))))
   payoffs = NamedArrays.NamedArray(zeros(length(actions), length(states)),
                                    (actions, states), ("action", "state"))
-  trans = let
+  trans, tp = let
     tp = NamedArrays.NamedArray( zeros(length(states), length(states), length(actions)) ,
                                  (states, states, actions), ("new", "old", "action") )
     cnt = NamedArrays.NamedArray( zeros(length(states), length(actions)) ,
                                   (states, actions), ("old", "action") )
     for t ∈ 2:length(state_data)
-      tp[state_data[t],state_data[t-1],action_data[t-1]] += 1
-      cnt[state_data[t-1],action_data[t-1]] += 1
+      if !(ismissing(state_data[t]) || ismissing(state_data[t-1]) || ismissing(action_data[t-1]))
+        tp[state_data[t],state_data[t-1],action_data[t-1]] += 1
+        cnt[state_data[t-1],action_data[t-1]] += 1
+      end
     end
     for (sold, action) ∈ Iterators.product(keys(states), keys(actions))
       tp[:,sold, action] ./= max(cnt[sold,action],one(eltype(cnt)))
     end
-    (a)->MarkovChain(states, tp[:,:,a]')
+    trans = ControlledMarkovChain(OrderedDict(a=>MarkovChain(states,tp[:,:,a]') for a ∈ keys(actions)))
+    trans, tp
   end
   ddc = DDC(states, actions, payoffs, discount, trans, Fϵ)
   choicep = deepcopy(payoffs)
   choicep .= zero(eltype(choicep))
   cnts = NamedArrays.NamedArray(zeros(length(states)), (states,),("state",))
   for (a,s) ∈ zip(action_data, state_data)
-    choicep[a,s] += 1
-    cnts[s] += 1
+    if !ismissing(a) && !ismissing(s)
+      choicep[a,s] += 1
+      cnts[s] += 1
+    end
   end
   for s ∈ keys(states)
     choicep[:,s] ./= max(cnts[s], one(eltype(cnts)))
   end
-  pay, v = estimate(choicep, ddc, zero_action=zero_action)
-  return(payoffs=pay, v=v, trans=trans, choicep=choicep)
+  pay, v = estimate(choicep, trans, ddc, zero_action=zero_action)
+  return(payoffs=pay, v=v, choicep=choicep, transarray=tp, ddc=ddc)
 end
 
 
@@ -241,16 +246,28 @@ function hotzmiller(p, a0, d::Distributions.Gumbel=Distributions.Gumbel())
 end
 
 """
-    estimate(p, ddc::DDC; zero_action=first(ddc.actions)[1])
+    estimate(p, transition, ddc::DDC; zero_action=first(ddc.actions)[1])
 
 Estimate payoffs of dynamic discrete choice model. `p` should be
-estimates of the conditional choice probabilities. `ddc.transition(a)`
+estimates of the conditional choice probabilities. `transition`
+should be a "states" by "states" by "actions" array, with `transition[new,old,action]=P(s=new|s=old,a=action)`.
+"""
+function estimate(p, tp::AbstractArray, ddc::DDC; zero_action=first(ddc.actions)[1])
+  trans = ControlledMarkovChain(OrderedDict(a=>MarkovChain(ddc.states,tp[:,:,a]') for a ∈ keys(ddc.actions)))
+  estimate(p, trans, ddc, zero_action=zero_action)
+end 
+
+
+"""
+    estimate(p, transition, ddc::DDC; zero_action=first(ddc.actions)[1])
+
+Estimate payoffs of dynamic discrete choice model. `p` should be
+estimates of the conditional choice probabilities. `transition(a)`
 should return a `MarkovChain` representing the transitions when action
 `a` is chosen.
 """
-function estimate(p, ddc::DDC; zero_action=first(ddc.actions)[1])
-
-  payoffs = deepcopy(ddc.payoffs)
+function estimate(p, transition::ControlledMarkovChain, ddc::DDC; zero_action=first(ddc.actions)[1])
+  payoffs = similar(p, promote_type(eltype(p), eltype(transition)), size(p))
   δ = ddc.discount
 
   v = similar(payoffs)
@@ -263,14 +280,15 @@ function estimate(p, ddc::DDC; zero_action=first(ddc.actions)[1])
   #         = 0 + discount * E[v[0,s] | 0, s] +
   #             + discount * E[ log (sum(exp(log(P[a,s]) - log(P[0,s])) + γ | 0, s]
   em = emaxp.(eachcol(p), zero_action, ddc.Fϵ)
-  v[zero_action, :] = (I - δ*ddc.transition(zero_action).P) \ (δ*expectations(em, ddc.transition(zero_action)))
+  v[zero_action, :] = (I - δ*transition(zero_action).P) \ (δ*expectations(em, transition(zero_action)))
   for s ∈ keys(ddc.states)
     @views v[:,s] .= hotzmiller(p[:,s], zero_action) .+ v[zero_action,s]
   end
   for a ∈ keys(ddc.actions)
-    payoffs[a,:] .= v[a,:] .- δ*expectations(emax.(eachcol(v), ddc.Fϵ), ddc.transition(a))
+    payoffs[a,:] .= v[a,:] .- δ*expectations(emax.(eachcol(v), ddc.Fϵ), transition(a))
   end
   return(payoffs=payoffs, v=v)
 end
+
 
 end
