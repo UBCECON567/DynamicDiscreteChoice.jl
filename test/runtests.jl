@@ -63,7 +63,7 @@ end
   Fϵ = Distributions.Gumbel()
   ddc = DynamicDiscreteChoice.DDC(states, actiondict, payoffs, discount, trans, Fϵ)
 
-  res = DynamicDiscreteChoice.value(ddc, show_trace=true, method=:anderson, m=0)
+  res = DynamicDiscreteChoice.value(ddc, show_trace=true, method=:anderson, m=1)
   
   # Value function from past calculation 
   Vexpect = reshape([1.2322159644235953, 0.6615604023460782, 1.2322159644235953, 1.0615604023460781, 1.2866470931936551, 1.3436909484346855, 1.2866470931936551, 1.4436909484346854],size(res.v))
@@ -125,4 +125,4 @@ end
     estgivent = x->DynamicDiscreteChoice.estimate(est.choicep,vec2named(x,est.transarray),est.ddc, zero_action="out").payoffs
     @test isa(ForwardDiff.jacobian(estgivent, vec(est.transarray)), AbstractMatrix)
   end
-en
+end
