@@ -9,7 +9,7 @@ bib = CitationBibliography("ddc.bib")
 makedocs(bib;
     modules=[DynamicDiscreteChoice],
     authors="Paul Schrimpf <paul.schrimpf@ubc.ca> and contributors",
-    repo="https://github.com/ubcecon567/DynamicDiscreteChoice.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/UBCECON567/DynamicDiscreteChoice.jl/blob/{commit}{path}#{line}",
     sitename="DynamicDiscreteChoice.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -22,7 +22,7 @@ makedocs(bib;
 )
 
 deploydocs(;
-    repo="github.com/ubcecon567/DynamicDiscreteChoice.jl",
+    repo="github.com/UBCECON567/DynamicDiscreteChoice.jl",
     devbranch="main",
 )
 
