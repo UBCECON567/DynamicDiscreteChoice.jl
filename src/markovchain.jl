@@ -17,6 +17,9 @@ function getindex(c::MarkovChain{StateType,T}, s1::StateType, s2::StateType) whe
   return(c.P[c.states[s1], c.states[s2]])
 end
 
+import Base: eltype
+eltype(c::MarkovChain) = eltype(c.P)
+
 """
    *(c1::MarkovChain, c2::MarkovChain)
 
@@ -38,7 +41,6 @@ end
 
 function show(io::IO, c::MarkovChain)
   sstates = OrderedDict( "$s" => i for (s,i) ∈ c.states)
-  print(io, "hello")
   show(io, NamedArrays.NamedArray(Matrix(c.P),(sstates,sstates), ("old","new")))
 end
 
@@ -47,3 +49,26 @@ expectations(x, c::MarkovChain) = c.P*x
 import Random: rand
 rand(c::MarkovChain, s::Integer) =  rand(Distributions.Categorical(c.P[s,:]))
 rand(c::MarkovChain, s::Union{String,Symbol,Tuple}) =  rand(Distributions.Categorical(c.P[c.states[s],:]))
+
+
+## Controled Markov Chain
+struct ControlledMarkovChain{MC, ActionType}
+  mc::OrderedDict{ActionType, MC}
+  actions::Vector{ActionType}
+end
+
+#function ControlledMarkovChain(actions::AbstractVector{ActionType}, chains::AbstractVector{MC}) where {ActionType, MC}
+#ControlledMarkovChain(OrderedDict(a=>mc for (a,mc) in zip(actions,chains)), [a for a in actions])
+#end
+function ControlledMarkovChain(mc::OrderedDict{ActionType,MC}) where {ActionType, MC}
+  ControlledMarkovChain(mc, [k for k in keys(mc)])
+end
+
+
+eltype(cmc::ControlledMarkovChain) = eltype(last(first(cmc.mc)))
+
+(cmc::ControlledMarkovChain{MC,ActionType})(a::ActionType) where {MC, ActionType} = cmc.mc[a]
+(cmc::ControlledMarkovChain{MC,ActionType})(i::Int64) where {MC, ActionType} = cmc.mc[cmc.actions[i]]
+
+actions(c::ControlledMarkovChain) = keys(c.mc)
+  
