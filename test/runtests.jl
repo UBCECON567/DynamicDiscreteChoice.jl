@@ -12,7 +12,7 @@ import Random, Distributions, ForwardDiff
                                                                0.0 0.4  0.6] ))
   c3=c1*c2
   @test issparse(c3.P)
-end>
+end
 
 @testset "ControlledMarkovChain" begin
   c1 = MarkovChain( ["lo","hi"], sparse([0.9 0.1;  0.2 0.8]) )
@@ -64,8 +64,8 @@ end
   ddc = DynamicDiscreteChoice.DDC(states, actiondict, payoffs, discount, trans, Fϵ)
 
   res = DynamicDiscreteChoice.value(ddc, show_trace=true, method=:anderson, m=1)
-  
-  # Value function from past calculation 
+
+  # Value function from past calculation
   Vexpect = reshape([1.2322159644235953, 0.6615604023460782, 1.2322159644235953, 1.0615604023460781, 1.2866470931936551, 1.3436909484346855, 1.2866470931936551, 1.4436909484346854],size(res.v))
   @test Vexpect ≈ res.v
 
@@ -115,13 +115,13 @@ end
     @test est.payoffs ≈ DynamicDiscreteChoice.estimate(est.choicep, est.transarray, est.ddc, zero_action="out").payoffs
     @test est.payoffs ≈ DynamicDiscreteChoice.estimate(est.choicep, est.ddc.transition, est.ddc, zero_action="out").payoffs
 
-   
-   
+
+
     # Test compatibility with ForwardDiff
     vec2named = (x,na)->NamedArray(reshape(x,size(na)), tuple(names(na)...), tuple(dimnames(na)...))
     @test est.choicep ≈ vec2named(vec(est.choicep),est.choicep)
     estgivenp = x->DynamicDiscreteChoice.estimate(vec2named(x,est.choicep),est.transarray,est.ddc, zero_action="out").payoffs
-    @test isa(ForwardDiff.jacobian(estgivenp, vec(est.choicep)), AbstractMatrix)    
+    @test isa(ForwardDiff.jacobian(estgivenp, vec(est.choicep)), AbstractMatrix)
     estgivent = x->DynamicDiscreteChoice.estimate(est.choicep,vec2named(x,est.transarray),est.ddc, zero_action="out").payoffs
     @test isa(ForwardDiff.jacobian(estgivent, vec(est.transarray)), AbstractMatrix)
 
@@ -131,11 +131,9 @@ end
       btable = DynamicDiscreteChoice.bootstrap_table(est.payoffs, bpayoffs)
       @test isa(btable, NamedArrays.NamedArray)
       for j in axes(payoffs)[2]
-        @test payoffs[2,j] > btable[4,j][1] 
-        @test payoffs[2,j] < btable[4,j][2] 
-      end 
-    end  
+        @test payoffs[2,j] > btable[4,j][1]
+        @test payoffs[2,j] < btable[4,j][2]
+      end
+    end
   end
 end
-
-

@@ -24,6 +24,7 @@ makedocs(bib;
 deploydocs(;
     repo="github.com/UBCECON567/DynamicDiscreteChoice.jl",
     devbranch="main",
+    push_preview=true,
 )
 
 
