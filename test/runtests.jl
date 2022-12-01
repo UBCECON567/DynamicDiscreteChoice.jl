@@ -12,7 +12,7 @@ import Random, Distributions, ForwardDiff
                                                                0.0 0.4  0.6] ))
   c3=c1*c2
   @test issparse(c3.P)
-end
+end>
 
 @testset "ControlledMarkovChain" begin
   c1 = MarkovChain( ["lo","hi"], sparse([0.9 0.1;  0.2 0.8]) )
@@ -103,7 +103,7 @@ end
       end
     end
   end
-  @testset "estimate" begin
+  @testset "Estimate" begin
     T = 20_000
     Random.seed!(8760)
     sim = DynamicDiscreteChoice.simulate(T, ddc, res.v)
@@ -115,14 +115,27 @@ end
     @test est.payoffs ≈ DynamicDiscreteChoice.estimate(est.choicep, est.transarray, est.ddc, zero_action="out").payoffs
     @test est.payoffs ≈ DynamicDiscreteChoice.estimate(est.choicep, est.ddc.transition, est.ddc, zero_action="out").payoffs
 
-    # need derivatives for inference
+   
+   
+    # Test compatibility with ForwardDiff
     vec2named = (x,na)->NamedArray(reshape(x,size(na)), tuple(names(na)...), tuple(dimnames(na)...))
     @test est.choicep ≈ vec2named(vec(est.choicep),est.choicep)
-
-    # Test compatibility with ForwardDiff
     estgivenp = x->DynamicDiscreteChoice.estimate(vec2named(x,est.choicep),est.transarray,est.ddc, zero_action="out").payoffs
     @test isa(ForwardDiff.jacobian(estgivenp, vec(est.choicep)), AbstractMatrix)    
     estgivent = x->DynamicDiscreteChoice.estimate(est.choicep,vec2named(x,est.transarray),est.ddc, zero_action="out").payoffs
     @test isa(ForwardDiff.jacobian(estgivent, vec(est.transarray)), AbstractMatrix)
+
+    @testset "Bootstrap" begin
+      B = 99
+      bpayoffs = DynamicDiscreteChoice.bootstrap_series(est.payoffs,est.v,T,est.ddc,B=B)
+      btable = DynamicDiscreteChoice.bootstrap_table(est.payoffs, bpayoffs)
+      @test isa(btable, NamedArrays.NamedArray)
+      for j in axes(payoffs)[2]
+        @test payoffs[2,j] > btable[4,j][1] 
+        @test payoffs[2,j] < btable[4,j][2] 
+      end 
+    end  
   end
 end
+
+
